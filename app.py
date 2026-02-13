@@ -342,5 +342,79 @@ def reports():
                            logs=activity_logs,
                            role=session.get('role', 'Staff'))
 
+@app.route('/init_db')
+def init_db():
+    conn = get_db_connection()
+    if not conn:
+        return "Gagal menghubungkan ke database. Periksa Variables di Railway.", 500
+    
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Tabel Users
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                full_name VARCHAR(100),
+                role ENUM('Admin', 'Staff') DEFAULT 'Staff'
+            )
+        """)
+        
+        # 2. Tabel Inventory
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS inventory (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                category VARCHAR(50),
+                price DECIMAL(10, 2) NOT NULL,
+                stock INT NOT NULL,
+                item_condition ENUM('Baru', 'Seperti Baru', 'Bagus', 'Layak Pakai') DEFAULT 'Bagus',
+                image_url VARCHAR(255) DEFAULT 'default-product.png',
+                entry_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # 3. Tabel Sales
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sales (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                product_id INT,
+                quantity INT NOT NULL,
+                total_price DECIMAL(10, 2) NOT NULL,
+                sale_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES inventory(id) ON DELETE CASCADE
+            )
+        """)
+
+        # 4. Tabel Activity Logs
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50),
+                action VARCHAR(100),
+                item_name VARCHAR(100),
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Insert admin & staff if not exists
+        cursor.execute("INSERT IGNORE INTO users (username, password, full_name, role) VALUES ('admin', 'admin123', 'Administrator Thrift', 'Admin')")
+        cursor.execute("INSERT IGNORE INTO users (username, password, full_name, role) VALUES ('staff', 'staff123', 'Staff Toko', 'Staff')")
+        
+        # Insert dummy data if inventory is empty
+        cursor.execute("SELECT COUNT(*) as count FROM inventory")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("INSERT INTO inventory (name, category, price, stock, item_condition) VALUES ('Jaket Vintage Nike', 'Pakaian Luar', 250000, 5, 'Seperti Baru')")
+            cursor.execute("INSERT INTO inventory (name, category, price, stock, item_condition) VALUES ('Celana Levi\'s 501', 'Bawahan', 150000, 10, 'Bagus')")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return "✅ Database Berhasil Diinisialisasi! Silakan kembali ke halaman utama dan Login."
+    except Exception as e:
+        return f"❌ Terjadi kesalahan: {str(e)}", 500
+
 if __name__ == '__main__':
     app.run(debug=True)
