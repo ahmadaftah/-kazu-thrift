@@ -19,12 +19,13 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# MySQL Configuration
+# Database configuration
 db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'thrift_db'
+    'host': os.getenv('DB_HOST', os.getenv('MYSQLHOST', 'localhost')),
+    'user': os.getenv('DB_USER', os.getenv('MYSQLUSER', 'root')),
+    'password': os.getenv('DB_PASSWORD', os.getenv('MYSQLPASSWORD', '')),
+    'database': os.getenv('DB_NAME', os.getenv('MYSQLDATABASE', 'thrift_db')),
+    'port': int(os.getenv('DB_PORT', os.getenv('MYSQLPORT', 3306)))
 }
 
 def get_db_connection():
