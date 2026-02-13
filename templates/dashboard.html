@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div style="margin-bottom: 30px;">
+        <h1>Dashboard Kazu Thrift</h1>
+        <p>Halo, {{ full_name }}! Berikut ringkasan performa toko thrift Anda.</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card glass">
+            <h3>Stok per Kategori</h3>
+            <canvas id="stockChart"></canvas>
+        </div>
+        <div class="card glass">
+            <h3>Pendapatan (7 Hari Terakhir)</h3>
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}

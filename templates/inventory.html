@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1>Manajemen Inventori 📦</h1>
+        <button class="btn" style="width: auto;" onclick="document.getElementById('addModal').style.display='block'">+
+            Tambah Barang</button>
+    </div>
+
+    <!-- Filter & Sort Bar -->
+    <div style="display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+            <input type="text" id="inventorySearch" class="glass" placeholder="🔍 Cari barang..."
+                style="width: 100%; padding: 15px 20px; border-radius: 15px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); color: white; font-family: 'Poppins', sans-serif;">
+        </div>
+        <select id="categoryFilter" class="glass"
+            style="padding: 15px; border-radius: 15px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); color: white; font-family: 'Poppins', sans-serif;">
+            <option value="">📂 Semua Kategori</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}" {% if cat==selected_category %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
+        <select id="conditionFilter" class="glass"
+            style="padding: 15px; border-radius: 15px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); color: white; font-family: 'Poppins', sans-serif;">
+            <option value="">⭐ Semua Kondisi</option>
+            {% for cond in conditions %}
+            <option value="{{ cond }}" {% if cond==selected_condition %}selected{% endif %}>{{ cond }}</option>
+            {% endfor %}
+        </select>
+        <select id="sortBy" class="glass"
+            style="padding: 15px; border-radius: 15px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); color: white; font-family: 'Poppins', sans-serif;">
+            <option value="date_desc" {% if selected_sort=='date_desc' %}selected{% endif %}>📅 Terbaru</option>
+            <option value="date_asc" {% if selected_sort=='date_asc' %}selected{% endif %}>📅 Terlama</option>
+            <option value="price_asc" {% if selected_sort=='price_asc' %}selected{% endif %}>💰 Harga Terendah</option>
+            <option value="price_desc" {% if selected_sort=='price_desc' %}selected{% endif %}>💰 Harga Tertinggi
+            </option>
+            <option value="stock_asc" {% if selected_sort=='stock_asc' %}selected{% endif %}>📦 Stok Sedikit</option>
+            <option value="stock_desc" {% if selected_sort=='stock_desc' %}selected{% endif %}>📦 Stok Banyak</option>
+        </select>
+    </div>
+
+    <!-- Inventory Table -->
+    <div class="glass" style="overflow: hidden;">
+        <table id="inventoryTable">
+            <thead>
+                <tr>
+                    <th>Foto</th>
+                    <th>Nama Barang</th>
+                    <th>Kategori</th>
+                    <th>Harga (Rp)</th>
+                    <th>Stok</th>
+                    <th>Kondisi</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>
+                        {% set img_path = item.image_url or 'default-product.png' %}
+                        <img src="{% if img_path.startswith('http') %}{{ img_path }}{% else %}{{ url_for('static', filename='img/products/' + img_path) }}{% endif %}"
+                            alt="{{ item.name }}"
+                            style="width: 50px; height: 50px; object-fit: cover; border-radius: 10px; border: 2px solid rgba(255,255,255,0.3);"
+                            onerror="this.onerror=null; this.src='https://placehold.co/400x400?text=No+Image';">
+                    </td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ "{:,.0f}".format(item.price) }}</td>
+                    <td>{{ item.stock }}</td>
+                    <td><span class="condition-badge condition-{{ item.item_condition|replace(' ', '-') }}">{{
+                            item.item_condition }}</span></td>
+                    <td>
+                        <button class="btn btn-edit"
+                            style="padding: 5px 10px; font-size: 12px; width: auto; margin-right: 5px;"
+                            data-id="{{ item.id }}" data-name="{{ item.name }}" data-category="{{ item.category }}"
+                            data-price="{{ item.price }}" data-stock="{{ item.stock }}"
+                            data-condition="{{ item.item_condition }}" data-image="{{ item.image_url }}">
+                            ✏️ Edit
+                        </button>
+                        {% if item.stock > 0 %}
+                        <a href="{{ url_for('sell_item', id=item.id) }}" class="btn"
+                            style="padding: 5px 10px; font-size: 12px; width: auto; margin-right: 5px; background: var(--success); box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);">
+                            💸 Jual
+                        </a>
+                        {% endif %}
+                        {% if role == 'Admin' %}
+                        <a href="{{ url_for('delete_item', id=item.id) }}" class="btn btn-danger"
+                            style="padding: 5px 10px; font-size: 12px; width: auto;"
+                            onclick="return confirm('Hapus barang ini?')">🗑️ Hapus</a>
+                        {% else %}
+                        <span style="opacity: 0.5; font-size: 12px;">Tidak ada akses</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Add Form Modal -->
+    <div id="addModal" class="login-container"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
+        <div class="login-card glass" style="width: 450px; margin: 50px auto;">
+            <h3>➕ Tambah Barang Baru</h3>
+            <form action="{{ url_for('add_item') }}" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>🔗 Link Foto Produk (URL)</label>
+                    <input type="text" name="image_url" placeholder="https://example.com/gambar.jpg"
+                        style="padding: 10px;">
+                </div>
+                <div class="form-group">
+                    <label>Nama Barang</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Kategori</label>
+                        <select name="category">
+                            <option>Atasan</option>
+                            <option>Bawahan</option>
+                            <option>Pakaian Luar</option>
+                            <option>Alas Kaki</option>
+                            <option>Aksesoris</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Kondisi</label>
+                        <select name="condition">
+                            <option>Baru</option>
+                            <option>Seperti Baru</option>
+                            <option>Bagus</option>
+                            <option>Layak Pakai</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Harga (Rp)</label>
+                        <input type="number" name="price" required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Stok</label>
+                        <input type="number" name="stock" required>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn">💾 Simpan</button>
+                    <button type="button" class="btn btn-danger"
+                        onclick="document.getElementById('addModal').style.display='none'">❌ Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Form Modal -->
+    <div id="editModal" class="login-container"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
+        <div class="login-card glass" style="width: 450px; margin: 50px auto;">
+            <h3>✏️ Edit Barang</h3>
+            <form id="editForm" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>🔗 Link Foto Produk (URL)</label>
+                    <div style="margin-bottom: 10px;">
+                        <img id="currentImage" src=""
+                            style="width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 2px solid rgba(255,255,255,0.3);"
+                            onerror="this.onerror=null; this.src='https://placehold.co/400x400?text=No+Image';">
+                    </div>
+                    <input type="text" id="editImageUrl" name="image_url" placeholder="https://example.com/gambar.jpg"
+                        style="padding: 10px;">
+                </div>
+                <div class="form-group">
+                    <label>Nama Barang</label>
+                    <input type="text" id="editName" name="name" required>
+                </div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Kategori</label>
+                        <select id="editCategory" name="category">
+                            <option>Atasan</option>
+                            <option>Bawahan</option>
+                            <option>Pakaian Luar</option>
+                            <option>Alas Kaki</option>
+                            <option>Aksesoris</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Kondisi</label>
+                        <select id="editCondition" name="condition">
+                            <option>Baru</option>
+                            <option>Seperti Baru</option>
+                            <option>Bagus</option>
+                            <option>Layak Pakai</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Harga (Rp)</label>
+                        <input type="number" id="editPrice" name="price" required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Stok</label>
+                        <input type="number" id="editStock" name="stock" required>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn">💾 Update</button>
+                    <button type="button" class="btn btn-danger"
+                        onclick="document.getElementById('editModal').style.display='none'">❌ Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Filter and Sort functionality
+    document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+    document.getElementById('conditionFilter').addEventListener('change', applyFilters);
+    document.getElementById('sortBy').addEventListener('change', applyFilters);
+
+    function applyFilters() {
+        const category = document.getElementById('categoryFilter').value;
+        const condition = document.getElementById('conditionFilter').value;
+        const sort = document.getElementById('sortBy').value;
+
+        let url = '/inventory?';
+        if (category) url += 'category=' + encodeURIComponent(category) + '&';
+        if (condition) url += 'condition=' + encodeURIComponent(condition) + '&';
+        url += 'sort=' + sort;
+
+        window.location.href = url;
+    }
+
+    // Search functionality (client-side)
+    document.getElementById('inventorySearch').addEventListener('keyup', function () {
+        const searchValue = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#inventoryTable tbody tr');
+
+        rows.forEach(row => {
+            const name = row.cells[1].textContent.toLowerCase();
+            const category = row.cells[2].textContent.toLowerCase();
+            if (name.includes(searchValue) || category.includes(searchValue)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // Handle Edit Modal with event delegation
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('btn-edit')) {
+            const btn = e.target;
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            const category = btn.dataset.category;
+            const price = btn.dataset.price;
+            const stock = btn.dataset.stock;
+            const condition = btn.dataset.condition;
+            const imageUrl = btn.dataset.image;
+
+            document.getElementById('editName').value = name;
+            document.getElementById('editCategory').value = category;
+            document.getElementById('editPrice').value = price;
+            document.getElementById('editStock').value = stock;
+            document.getElementById('editCondition').value = condition;
+            document.getElementById('editImageUrl').value = imageUrl;
+
+            let displayUrl = (imageUrl && imageUrl.startsWith('http')) ? imageUrl : '/static/img/products/' + (imageUrl || 'default-product.png');
+            const currentImg = document.getElementById('currentImage');
+            currentImg.onerror = function () {
+                this.onerror = null;
+                this.src = 'https://placehold.co/400x400?text=No+Image';
+            };
+            currentImg.src = displayUrl;
+
+            document.getElementById('editForm').action = '/inventory/edit/' + id;
+            document.getElementById('editModal').style.display = 'block';
+        }
+    });
+
+    // Close modals on escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            document.getElementById('addModal').style.display = 'none';
+            document.getElementById('editModal').style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}
